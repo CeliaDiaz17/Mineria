@@ -5,3 +5,4 @@ Repositorio para las prácticas de la asignatura de Minería de Datos.
 - Fernando García Ballesteros
 - Guillermo Cubero Charco
 - Celia Díaz Fernández
+- Miguel Gómez Gómez - Lobo
