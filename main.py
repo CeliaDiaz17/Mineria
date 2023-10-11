@@ -2,7 +2,6 @@ import json
 import csv
 import os
 import pandas as pd 
-from pymongo import MongoClient
      
 #"/datasets/cdc/mortality/download?datasetVersionNumber=2" 
 def leerDatosCsv(ruta):

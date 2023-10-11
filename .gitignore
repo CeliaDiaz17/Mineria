@@ -1,6 +1,6 @@
-csv/
-resultados/
-requirements.txt
+/csv
+/resultados
+/requirements.txt
 *.csv
 
 # Ignora archivos del sistema Mac 
