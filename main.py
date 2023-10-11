@@ -77,66 +77,52 @@ def archivosCsv(folder_path, columnasEliminadas):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
             try:
+                print("Inicio de la limpieza del año:", str(cont))
                 dataTemp = (leerDatosCsv(file_path))
+
+                # Eliminacion de filas
+                dataTemp = dataTemp[dataTemp['manner_of_death']==2]
+                #print(f"Filas tras la seleccion de suicidios: {len(dataTemp)}")
+                dataTemp = dataTemp[dataTemp['130_infant_cause_recode'].isnull()]
+                #print(f"Filas tras la eliminacion de los niños: {len(dataTemp)}")
+
+                # Eliminacion de columnas no utiles
                 columnasEl = [col for col in columnasEliminadas if col in dataTemp.columns.to_list()]
                 dataTemp.drop(columnasEl, axis = 1, inplace = True)
+
                 # Define un diccionario de mapeo para realizar la sustitución de valores
                 mapeo_valores = {1: 8, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 26}
-                # Utiliza la función 'replace' para aplicar el mapeo a la columna 'education_2003_revision'
+                # Utiliza la función 'replace' para aplicar el mapeo a la columna 'education_2003_revision' y une las columnas del 1989 y 2003 
                 dataTemp['education_2003_revision'] = dataTemp['education_2003_revision'].replace(mapeo_valores)
                 dataTemp['education'] = dataTemp['education_1989_revision'].fillna(dataTemp['education_2003_revision'])
+
+                # Eliminacion de columnas despues de combinarlas en una nueva
                 dataTemp.drop(['education_1989_revision', 'education_2003_revision'], axis=1, inplace=True)
+
+                # Concatenacion en el data frame final
                 data = pd.concat([data, dataTemp], ignore_index=True)
+
             except pd.errors.EmptyDataError:
                 print(f"El archivo {filename} está vacío.")
-            print(cont)
+            print("Fin de la limpieza del año: ", str(cont),"\n")
             cont+=1
     return data
 
 def guardarCsv(dataframe, nombre_archivo):
     dataframe.to_csv(nombre_archivo, index=False)
 
-#mongodb+srv://<username>:<password>@datamineria.tnu4fw1.mongodb.net/?retryWrites=true&w=majority
-def cargarDatosMongo(database_name, mongo_uri, username, password, dataFrame=None, folder_path=None, collection_name="datos"):
-    try:
-        client = MongoClient(mongo_uri)
-        # Seleccionar la base de datos
-        db = client[database_name]  
-        # Autenticar con el usuario y contraseña
-        db.authenticate(username, password)
-        if dataFrame is not None:
-            data = dataFrame
-        elif folder_path is not None:
-            # Leer el archivo CSV en un DataFrame de pandas
-            data = pd.read_csv(folder_path)
-        else:
-            raise ValueError("Debes proporcionar un DataFrame o una ruta de carpeta válida.")
-        # Convertir el DataFrame a una lista de diccionarios
-        data_dict_list = data.to_dict(orient='records')            
-        # Seleccionar la colección
-        collection = db[collection_name]           
-        # Insertar los datos en la colección
-        collection.insert_many(data_dict_list)       
-        print("Datos cargados exitosamente en MongoDB.")        
-    except Exception as e:
-        print(f"Error al cargar datos en MongoDB: {str(e)}")
-    finally:
-        client.close()
-    
-
 
 if __name__ == '__main__':
     columnasEliminadas = ["infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
     
     #Crear data csv
-    """ data = archivosCsv("csv",columnasEliminadas)
+    print("Inicio de la union de csv's")
+    data = archivosCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv",columnasEliminadas)
     print('Inicio del guardado de datos...')
     guardarCsv(data,'resultados/data.csv')
-    print('Fin del guardado de datos') """
+    print('Fin del guardado de datos')
 
-    
-
-    #comprobaciones2('resultados/data.csv')
+    #comprobaciones2('resultados/data.csv',None)
     #california("2021-05-14_deaths_final_1999_2013_state_year_sup.csv")
     #comprobaciones()
     """ data=leerDatosCsv("csv/2005_data.csv")
