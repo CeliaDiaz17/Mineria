@@ -134,8 +134,7 @@ if __name__ == '__main__':
     guardarCsv(data,'resultados/data.csv')
     print('Fin del guardado de datos') """
 
-    #Meter los datos a la base de datos
-    cargarDatosMongo("dataMineria", "mongodb+srv://fergballes:Mineria*2023@cluster0.mongodb.net", "fergballes", "Mineria*2023", dataFrame=None, folder_path="resultados/data.csv")
+    
 
     #comprobaciones2('resultados/data.csv')
     #california("2021-05-14_deaths_final_1999_2013_state_year_sup.csv")
