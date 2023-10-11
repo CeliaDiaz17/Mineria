@@ -1,5 +1,6 @@
 csv/
 resultados/
+requeriments.txt
 
 # Ignora archivos del sistema Mac 
 .DS_store
