@@ -1,6 +1,9 @@
 /csv
 /resultados
-/requirements.txt
+/SuicideData
+/SuicideRateData
+/UnemploymentData
+tempCodeRunnerFile.py
 *.csv
 
 # Ignora archivos del sistema Mac 

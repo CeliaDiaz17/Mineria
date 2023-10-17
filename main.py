@@ -2,6 +2,14 @@ import json
 import csv
 import os
 import pandas as pd 
+import requests
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service as ChromeService 
+from webdriver_manager.chrome import ChromeDriverManager 
      
 #"/datasets/cdc/mortality/download?datasetVersionNumber=2" 
 def leerDatosCsv(ruta):
@@ -111,16 +119,50 @@ def archivosCsv(folder_path, columnasEliminadas):
 def guardarCsv(dataframe, nombre_archivo):
     dataframe.to_csv(nombre_archivo, index=False)
 
+def descargaCsvSuicidiosFederal(url):
+    r = requests.get(url=url)
+    """ print(r) #200 es OKEY
+    print(r.content) """
+
+    soup = BeautifulSoup(r.content, "html.parser")
+    #urlDw = soup.find_all("a")["href"]
+
+    print(soup)
+    return 1
+
+def descargaCsvTasaSuicidioEstatal(url):
+    # Inicializa un navegador web controlado por Selenium
+    options = webdriver.ChromeOptions()
+    options.headless = True
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)  # Asegúrate de tener ChromeDriver instalado y en tu PATH
+    # Abre la página web en el navegador controlado por Selenium
+    driver.get(url)
+    elements=driver.find_elements(By.CLASS_NAME, 'theme-blue no-border')
+    print(driver.page_source)
+    
+
+def descargaCsvTasaDesempleo(url):
+    r =requests.get(url=url)
+    soup = BeautifulSoup(r.content, "html.parser")
+
+    print(soup)
+
+
 
 if __name__ == '__main__':
     columnasEliminadas = ["infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
     
     #Crear data csv
-    print("Inicio de la union de csv's")
+    """ print("Inicio de la union de csv's")
     data = archivosCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv",columnasEliminadas)
     print('Inicio del guardado de datos...')
     guardarCsv(data,'resultados/data.csv')
-    print('Fin del guardado de datos')
+    print('Fin del guardado de datos') """
+
+    #descargaCsvSuicidiosFederal('https://www.kaggle.com/datasets/cdc/mortality/data?select=2015_codes.json')
+    descargaCsvTasaSuicidioEstatal("https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm")
+    #descargaCsvTasaDesempleo("https://www.kaggle.com/datasets/aniruddhasshirahatti/us-unemployment-dataset-2010-2020")
+
 
     #comprobaciones2('resultados/data.csv',None)
     #california("2021-05-14_deaths_final_1999_2013_state_year_sup.csv")
