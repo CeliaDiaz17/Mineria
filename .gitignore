@@ -5,6 +5,7 @@
 /UnemploymentData
 tempCodeRunnerFile.py
 *.csv
+*.json
 
 # Ignora archivos del sistema Mac 
 .DS_store

@@ -4,3 +4,6 @@ requests
 beautifulsoup4
 selenium
 webdriver_manager
+pandas_profiling
+python-magic
+kaggle
