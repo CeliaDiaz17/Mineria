@@ -14,8 +14,15 @@ import kaggle
 from urllib.parse import urlparse
 from kaggle.api.kaggle_api_extended import KaggleApi
 import shutil
+from selenium import webdriver
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from pathlib import Path
+
      
-#"/datasets/cdc/mortality/download?datasetVersionNumber=2" 
 def leerDatosCsv(ruta):
     nRowsRead = None
     data = pd.read_csv(ruta, delimiter=',', nrows = nRowsRead,low_memory=False)
@@ -59,7 +66,6 @@ def comprobaciones():
 
     print(f"\tTotal rows: {len(data)}")
  
-
 def suicideDataCsv(folder_path, columnasEliminadas):
     cont = 2005
     data = pd.DataFrame()
@@ -96,14 +102,8 @@ def suicideDataCsv(folder_path, columnasEliminadas):
                 print(f"El archivo {filename} está vacío.")
             print("Fin de la limpieza del año: ", str(cont),"\n")
             cont+=1
-    
+
     shutil.rmtree(folder_path)
-
-    return data
-
-def suicideRateDataCsv(path):
-    data = leerDatosCsv(path)
-    data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
     return data
 
 def unemploymentUSDataCsv(path):
@@ -117,18 +117,53 @@ def guardarCsv(dataframe, nombre_archivo):
     ruta = 'resultados/' + nombre_archivo
     dataframe.to_csv(ruta, index=False)
 
-def descragarKaggle(download_dir,dataset_name):
+def descargarKaggle(download_dir,dataset_name):
     # Descarga con kaggle
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(str(dataset_name), path = str(download_dir), unzip = True)
     
+def descargarSuicideRate(download_dir, url):
+    # Use GeckoDriverManager to automatically download the compatible GeckoDriver for Firefox
+    driver = webdriver.Firefox()
+    driver.get(url)
+    time.sleep(5)  # Give the page some time to load
 
-def descargaCsvTasaDesempleo(url):
-    r =requests.get(url=url)
-    soup = BeautifulSoup(r.content, "html.parser")
+    wait = WebDriverWait(driver, 10)  # You may adjust the timeout as needed
 
-    print(soup)
+    # Locate the download button element
+    download_button = None
+    try:
+        xpath = '/html/body/div[3]/main/div[3]/div/div[3]/div/div/div[1]/div/div/section/section[3]/span/a'
+        download_button = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+    except:
+        pass
+
+    if download_button:
+        # Click the download link
+        download_button.click()
+        # Wait for the download to complete (you may need to adjust the wait time)
+        time.sleep(10)
+
+        downloaded_file = os.path.join(os.path.expanduser('~'), 'Downloads', 'data-table.csv').replace('\\', '/')
+        destination_file = Path(os.path.join(download_dir, 'suicideRate.csv').replace('\\', '/'))
+
+        # Ensure the destination directory exists
+        os.makedirs(download_dir, exist_ok=True)
+
+        # Move the file to the destination with the new name
+        shutil.move(downloaded_file, destination_file)
+        destination_file.chmod(0o644)
+
+    driver.quit()
+
+
+# https://www.cdc.gov/d2514623-b500-40e7-a472-c378514f86c3
+def suicideRateDataCsv(folder_path, file_name):
+    data = leerDatosCsv(folder_path+file_name)
+    data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
+    shutil.rmtree(folder_path)
+    return data
 
 def conectarBBDD():
 
@@ -141,15 +176,19 @@ def menu():
         if opcion == "1":
             download_dir = "csv/mortalidad/"
             dataset = "cdc/mortality"
-            descragarKaggle(download_dir, dataset)
+            descargarKaggle(download_dir, dataset)
             print("Inicio de la unión de CSVs para generar SuicideData")
             data = suicideDataCsv(download_dir, columnasEliminadas)
             print("Inicio del guardado de datos...")
             guardarCsv(data, "suicideData.csv")
             print("Fin del guardado de datos en el archivo suicideData.csv")
         elif opcion == "2":
+            download_dir = "csv/suicideRate/"
+            dataset_url = "https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm"
+            file_name = "suicideRate.csv"
             print("Inicio del procesamiento de SuicideRateData")
-            data = suicideRateDataCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideRateData/data-table.csv")
+            descargarSuicideRate(download_dir, dataset_url)
+            data = suicideRateDataCsv(download_dir, file_name)
             print("Inicio del guardado de datos...")
             guardarCsv(data, "suicideRateData.csv")
             print("Fin del guardado de datos en el archivo suicideRateData.csv")
@@ -157,7 +196,7 @@ def menu():
             print("Inicio del procesamiento de UnemploymentData")
             download_dir = "csv/unemployment"
             dataset = "aniruddhasshirahatti/us-unemployment-dataset-2010-2020"
-            descragarKaggle(download_dir, dataset)
+            descargarKaggle(download_dir, dataset)
             data = unemploymentUSDataCsv(download_dir)
             print("Inicio del guardado de datos...")
             guardarCsv(data, "unemploymentUSData.csv")
@@ -166,7 +205,6 @@ def menu():
             break
         else:
             print("Opción no válida. Por favor, selecciona una opción válida.")
-
 
 
 if __name__ == '__main__':
