@@ -12,12 +12,8 @@ import zipfile
 import subprocess
 import kaggle
 from urllib.parse import urlparse
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service as ChromeService 
-from webdriver_manager.chrome import ChromeDriverManager 
+from kaggle.api.kaggle_api_extended import KaggleApi
+import shutil
      
 #"/datasets/cdc/mortality/download?datasetVersionNumber=2" 
 def leerDatosCsv(ruta):
@@ -100,6 +96,9 @@ def suicideDataCsv(folder_path, columnasEliminadas):
                 print(f"El archivo {filename} está vacío.")
             print("Fin de la limpieza del año: ", str(cont),"\n")
             cont+=1
+    
+    shutil.rmtree(folder_path)
+
     return data
 
 def suicideRateDataCsv(path):
@@ -108,76 +107,21 @@ def suicideRateDataCsv(path):
     return data
 
 def unemploymentUSDataCsv(path):
-    data = leerDatosCsv(path)
-    data = data.drop('Date', axis = 1, inplace = True)
+    folder_path = path + "/unemployment_data_us.csv"
+    data = leerDatosCsv(folder_path)
     data = data[(data['Year']>=2005) & (data['Year']<=2015)]
+    shutil.rmtree(path)
     return data
 
 def guardarCsv(dataframe, nombre_archivo):
     ruta = 'resultados/' + nombre_archivo
     dataframe.to_csv(ruta, index=False)
 
-def descargaCsvSuicidiosFederal(url, output_path):
-    try:
-        # Download the file
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-
-        # Create the output directory if it doesn't exist
-        os.makedirs(output_path, exist_ok=True)
-
-        # Determine the output file path
-        output_file = os.path.join(output_path, "archive.zip")
-
-        # Save the file
-        with open(output_file, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-
-        # Try to extract the contents of the ZIP file
-        try:
-            with zipfile.ZipFile(output_file, 'r') as zip_ref:
-                zip_ref.extractall(output_path)
-        except zipfile.BadZipFile:
-            # If it's not a ZIP file, identify the file type
-            with magic.Magic() as magic_obj:
-                file_type = magic_obj.from_file(output_file)
-                print(f"The downloaded file is not a valid ZIP archive. It is of type: {file_type}")
-
-        # Delete the downloaded file
-        os.remove(output_file)
-
-        print(f"File downloaded and extracted to {output_path}")
-    except requests.exceptions.RequestException as e:
-        print(f"Request error: {e}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-
 def descragarKaggle(download_dir,dataset_name):
-    kaggle.api.authenticate(api_key="path_to_your_kaggle.json")
-    try:
-        # Create the download directory if it doesn't exist
-        if not os.path.exists(download_dir):
-            os.makedirs(download_dir)
-
-        # Download the dataset
-        kaggle.api.dataset_download_files(dataset_name, path=download_dir, unzip=True)
-        return True  # Download successful
-    except Exception as e:
-        print(f"Error: {e}")
-        return False  # Download failed
-
-
-def descargaCsvTasaSuicidioEstatal(url):
-    # Inicializa un navegador web controlado por Selenium
-    options = webdriver.ChromeOptions()
-    options.headless = True
-    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)  # Asegúrate de tener ChromeDriver instalado y en tu PATH
-    # Abre la página web en el navegador controlado por Selenium
-    driver.get(url)
-    elements=driver.find_elements(By.CLASS_NAME, 'theme-blue no-border')
-    print(driver.page_source)
+    # Descarga con kaggle
+    api = KaggleApi()
+    api.authenticate()
+    api.dataset_download_files(str(dataset_name), path = str(download_dir), unzip = True)
     
 
 def descargaCsvTasaDesempleo(url):
@@ -186,51 +130,47 @@ def descargaCsvTasaDesempleo(url):
 
     print(soup)
 
-    
+def conectarBBDD():
+
+    return 1
+
+def menu():
+    while True:
+        opcion = input("Opciones:\n1. Descargar datos de mortalidad\n2. Procesar datos de SuicideRate\n3. Procesar datos de UnemploymentData\n4. Salir\nSelecciona una opción: ")
+
+        if opcion == "1":
+            download_dir = "csv/mortalidad/"
+            dataset = "cdc/mortality"
+            descragarKaggle(download_dir, dataset)
+            print("Inicio de la unión de CSVs para generar SuicideData")
+            data = suicideDataCsv(download_dir, columnasEliminadas)
+            print("Inicio del guardado de datos...")
+            guardarCsv(data, "suicideData.csv")
+            print("Fin del guardado de datos en el archivo suicideData.csv")
+        elif opcion == "2":
+            print("Inicio del procesamiento de SuicideRateData")
+            data = suicideRateDataCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideRateData/data-table.csv")
+            print("Inicio del guardado de datos...")
+            guardarCsv(data, "suicideRateData.csv")
+            print("Fin del guardado de datos en el archivo suicideRateData.csv")
+        elif opcion == "3":
+            print("Inicio del procesamiento de UnemploymentData")
+            download_dir = "csv/unemployment"
+            dataset = "aniruddhasshirahatti/us-unemployment-dataset-2010-2020"
+            descragarKaggle(download_dir, dataset)
+            data = unemploymentUSDataCsv(download_dir)
+            print("Inicio del guardado de datos...")
+            guardarCsv(data, "unemploymentUSData.csv")
+            print("Fin del guardado de datos en el archivo unemploymentUSData.csv")
+        elif opcion == "4":
+            break
+        else:
+            print("Opción no válida. Por favor, selecciona una opción válida.")
+
 
 
 if __name__ == '__main__':
     columnasEliminadas = ["infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
+    menu()
 
-    # Descarga death data
-    #descargaCsvSuicidiosFederal("https://www.kaggle.com/datasets/cdc/mortality/download?datasetVersionNumber=2", "C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideData")
-    descragarKaggle("C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideData","cdc/mortality")
-    #Crear data csv's
-    """ print("Inicio de la union de csv's para generar SuicideData")
-    data = suicideDataCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideData",columnasEliminadas)
-    print('Inicio del guardado de datos...')
-    guardarCsv(data,'suicideData.csv')
-    print('Fin del guardado de datos en el archivo suicideData.csv') """
-
-    """ print('Inicio del procesamiento de SuicideRateData')
-    data = suicideRateDataCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideRateData/data-table.csv")
-    print('Inicio del guardado de datos...')
-    guardarCsv(data, 'suicideRateData')
-    print('Fin del guardado de datos en el archivo suicideRateData.csv') """
-
-    """ print('Inicio del procesamiento de UnemploymentData')
-    data = unemploymentUSDataCsv("C:/Users/garci/proyectos/practicasMineriaDatos/csv/unemploymentData/unemployment_data_us.csv")
-    print('Inicio del guardado de datos...')
-    guardarCsv(data, 'unemploymentUSData')
-    print('Fin del guardado de datos en el archivo unemploymentUSData.csv')   """  
-
-
-    """ print("Inicio de la union de csv's para generar SuicideData")
-    data = suicideDataCsvConcurrente("C:/Users/garci/proyectos/practicasMineriaDatos/csv/SuicideData", columnasEliminadas)
-    print('Inicio del guardado de datos...')
-    guardarCsv(data,'suicideDataConcu.csv')
-    print('Fin del guardado de datos en el archivo suicideDataConcu.csv') """
-
-
-    #Dynamic webScrapping
-    #descargaCsvSuicidiosFederal('https://www.kaggle.com/datasets/cdc/mortality/data?select=2015_codes.json')
-    #descargaCsvTasaSuicidioEstatal("https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm")
-    #descargaCsvTasaDesempleo("https://www.kaggle.com/datasets/aniruddhasshirahatti/us-unemployment-dataset-2010-2020")
-
-    #Comprobaciones
-    #comprobaciones2('resultados/data.csv',None)
-    #california("2021-05-14_deaths_final_1999_2013_state_year_sup.csv")
-    #comprobaciones()
-    """ data=leerDatosCsv("csv/2005_data.csv")
-    print(data[(data['manner_of_death']==2) & (data['130_infant_cause_recode'].notnull())]) """
     
