@@ -1,12 +1,6 @@
-import json
 import csv
 import os
 import pandas as pd 
-import requests
-import concurrent.futures
-import threading
-from concurrent.futures import ThreadPoolExecutor
-from bs4 import BeautifulSoup
 import time
 import zipfile
 import subprocess
@@ -22,13 +16,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pathlib import Path
 
-     
-def leerDatosCsv(ruta):
-    nRowsRead = None
-    data = pd.read_csv(ruta, delimiter=',', nrows = nRowsRead,low_memory=False)
-    data.dataframeName = ruta
-    return data
-
+ # Sera borrado en un futuro cercano ya que solo servia para ciertas comprobaciones previas
 def comprobaciones():
     folder_path="csv"
     cont=2005
@@ -37,7 +25,7 @@ def comprobaciones():
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
             # Read the CSV file
-            data = leerDatosCsv(file_path)
+            data = csv_to_df(file_path)
             # Check rows
             educacion = data[(data['education_1989_revision'].notnull()) & (data['education_2003_revision'].notnull())]
             suicide=data[(data['manner_of_death']==2)]
@@ -65,8 +53,16 @@ def comprobaciones():
             cont+=1
 
     print(f"\tTotal rows: {len(data)}")
- 
-def suicideDataCsv(folder_path, columnasEliminadas):
+
+# Lee un archuvo csv pasando su ruta, lo transforma en un dataframe y lo devuelve
+def csv_to_df(ruta):
+    nRowsRead = None
+    data = pd.read_csv(ruta, delimiter=',', nrows = nRowsRead,low_memory=False)
+    data.dataframeName = ruta
+    return data
+
+# Lee todos los archivos csv's de una carpeta dada, los tranforma en dataframe, los unes, y se realiza un procesamiento sobre los datos eliminando y unificando ciertas columnas
+def preprocessing_suicide_data(folder_path, columnasEliminadas):
     cont = 2005
     data = pd.DataFrame()
     for filename in os.listdir(folder_path):
@@ -74,7 +70,7 @@ def suicideDataCsv(folder_path, columnasEliminadas):
             file_path = os.path.join(folder_path, filename)
             try:
                 print("Inicio de la limpieza del año:", str(cont))
-                dataTemp = (leerDatosCsv(file_path))
+                dataTemp = (csv_to_df(file_path))
 
                 # Eliminacion de filas
                 dataTemp = dataTemp[dataTemp['manner_of_death']==2]
@@ -106,24 +102,43 @@ def suicideDataCsv(folder_path, columnasEliminadas):
     shutil.rmtree(folder_path)
     return data
 
-def unemploymentUSDataCsv(path):
+# Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 solo para el unployment dataset
+def preprocessing_unemployment_data(path):
     folder_path = path + "/unemployment_data_us.csv"
-    data = leerDatosCsv(folder_path)
+    data = csv_to_df(folder_path)
     data = data[(data['Year']>=2005) & (data['Year']<=2015)]
     shutil.rmtree(path)
     return data
 
-def guardarCsv(dataframe, nombre_archivo):
-    ruta = 'resultados/' + nombre_archivo
-    dataframe.to_csv(ruta, index=False)
+# Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 solo para suicide_rate dataset
+def preprocessing_suicide_rate_data(folder_path, file_name):
+    data = csv_to_df(folder_path+file_name)
+    data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
+    shutil.rmtree(folder_path)
+    return data
 
-def descargarKaggle(download_dir,dataset_name):
+# Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 de unployment o suicide_rate dataset
+def preprocessing_suicide_rate_or_unemployment_data(op, folder_path):
+    for file_name in os.listdir(folder_path):
+        data = csv_to_df(folder_path+file_name)
+        if op == 1:
+            data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
+        if op == 2:
+            data = data[(data['Year']>=2005) & (data['Year']<=2015)]
+        else: print("Opcion incorrecta, ha de ser 1 o 2")
+        break
+    shutil.rmtree(folder_path)
+    return data
+
+# Funcion que descarga cualquier dataset de la pagina de kaggle usando su api indicando el nombre del dataset y la carpeta donde quieres guardarlo
+def download_kaggle(download_dir,dataset_name):
     # Descarga con kaggle
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(str(dataset_name), path = str(download_dir), unzip = True)
-    
-def descargarSuicideRate(download_dir, url):
+
+# Descarga el dataset de la pagina de cdc.gov haciendo uso de selenium, necesita el enlace de la pagina y el directorio de descarga    
+def download_suicide_rate(download_dir, url):
     # Use GeckoDriverManager to automatically download the compatible GeckoDriver for Firefox
     driver = webdriver.Firefox()
     driver.get(url)
@@ -157,58 +172,71 @@ def descargarSuicideRate(download_dir, url):
 
     driver.quit()
 
+# Guarda un dataframe en un csv
+def save_csv(dataframe, nombre_archivo):
+    ruta = 'resultados/' + nombre_archivo
+    dataframe.to_csv(ruta, index=False)
 
-# https://www.cdc.gov/d2514623-b500-40e7-a472-c378514f86c3
-def suicideRateDataCsv(folder_path, file_name):
-    data = leerDatosCsv(folder_path+file_name)
-    data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
-    shutil.rmtree(folder_path)
-    return data
-
+# Conexion con la base de datos
 def conectarBBDD():
 
     return 1
 
-def menu():
+# Menu con las distintas opciones del programa
+def menu(columnas_eliminadas):
     while True:
-        opcion = input("Opciones:\n1. Descargar datos de mortalidad\n2. Procesar datos de SuicideRate\n3. Procesar datos de UnemploymentData\n4. Salir\nSelecciona una opción: ")
+        opcion = input("Opciones:\n1. Descargar datos de mortalidad\n2. Procesar datos de SuicideRate\n3. Procesar datos de UnemploymentData\n4. Eliminar archivos de la carpeta csv y resultados\n5. Salir\nSelecciona una opción: ")
 
+        # Opcion 1: Descarga, transformacion a dataframe y preprocesamiento del dataset cdc/mortality de kaggle
         if opcion == "1":
-            download_dir = "csv/mortalidad/"
-            dataset = "cdc/mortality"
-            descargarKaggle(download_dir, dataset)
+            download_dir_mortalidad = "csv/mortalidad/"
+            dataset_mortalidad = "cdc/mortality"
+            print("Inicio de la descarga del data set", dataset_mortalidad)
+            download_kaggle(download_dir_mortalidad, dataset_mortalidad)
             print("Inicio de la unión de CSVs para generar SuicideData")
-            data = suicideDataCsv(download_dir, columnasEliminadas)
+            preprocess_suicide_data = preprocessing_suicide_data(download_dir_mortalidad, columnas_eliminadas)
             print("Inicio del guardado de datos...")
-            guardarCsv(data, "suicideData.csv")
-            print("Fin del guardado de datos en el archivo suicideData.csv")
+            save_csv(preprocess_suicide_data, "suicide_data.csv")
+            print("Fin del guardado de datos en el archivo suicid_data.csv")
+        
+        # Opcion 2: Descarga, transformacion a dataframe y preprocesamiento del dataset suicide_rate de cdc.gov
         elif opcion == "2":
-            download_dir = "csv/suicideRate/"
-            dataset_url = "https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm"
-            file_name = "suicideRate.csv"
+            download_dir_suicide_rate = "csv/suicideRate/"
+            dataset__suicide_rate_url = "https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm"
             print("Inicio del procesamiento de SuicideRateData")
-            descargarSuicideRate(download_dir, dataset_url)
-            data = suicideRateDataCsv(download_dir, file_name)
+            download_suicide_rate(download_dir_suicide_rate, dataset__suicide_rate_url)
+            preprocess_suicide_rate_data = preprocessing_suicide_rate_or_unemployment_data(1, download_dir_suicide_rate)
             print("Inicio del guardado de datos...")
-            guardarCsv(data, "suicideRateData.csv")
-            print("Fin del guardado de datos en el archivo suicideRateData.csv")
+            save_csv(preprocess_suicide_rate_data, "suicide_rate_data.csv")
+            print("Fin del guardado de datos en el archivo suicide_rate_data.csv")
+            
+        # Opcion 3: Descarga, transformacion a dataframe y preprocesamiento del dataset unemployment de kaggle
         elif opcion == "3":
+            download_dir_unemployment = "csv/unemployment/"
+            dataset_unemployment = "aniruddhasshirahatti/us-unemployment-dataset-2010-2020"
             print("Inicio del procesamiento de UnemploymentData")
-            download_dir = "csv/unemployment"
-            dataset = "aniruddhasshirahatti/us-unemployment-dataset-2010-2020"
-            descargarKaggle(download_dir, dataset)
-            data = unemploymentUSDataCsv(download_dir)
+            download_kaggle(download_dir_unemployment, dataset_unemployment)
+            preprocess_data = preprocessing_suicide_rate_or_unemployment_data(2,download_dir_unemployment)
             print("Inicio del guardado de datos...")
-            guardarCsv(data, "unemploymentUSData.csv")
-            print("Fin del guardado de datos en el archivo unemploymentUSData.csv")
+            save_csv(preprocess_data, "unemployment_data.csv")
+            print("Fin del guardado de datos en el archivo unemployment_data.csv")
+
+        # Opcion para eliminar todos los csv's
         elif opcion == "4":
+            print('Eliminando archivos de la carpeta csv y resultados...')
+            shutil.rmtree("csv")
+            shutil.rmtree("resultados")
+            print('Archivos eliminados')
+
+        # Opcion de salida
+        elif opcion == "5":
             break
         else:
             print("Opción no válida. Por favor, selecciona una opción válida.")
 
 
 if __name__ == '__main__':
-    columnasEliminadas = ["infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
-    menu()
+    columnas_eliminadas = ["infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
+    menu(columnas_eliminadas)
 
     
