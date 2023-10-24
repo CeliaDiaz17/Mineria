@@ -4,8 +4,10 @@
 /SuicideRateData
 /UnemploymentData
 tempCodeRunnerFile.py
+ddbb_passaword.txt
 *.csv
 *.json
+*.log
 
 # Ignora archivos del sistema Mac 
 .DS_store

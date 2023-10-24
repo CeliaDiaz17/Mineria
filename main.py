@@ -15,8 +15,11 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pathlib import Path
+import getpass
+import traceback
+import oracledb
 
- # Sera borrado en un futuro cercano ya que solo servia para ciertas comprobaciones previas
+# Sera borrado en un futuro cercano ya que solo servia para ciertas comprobaciones previas
 def comprobaciones():
     folder_path="csv"
     cont=2005
@@ -144,7 +147,7 @@ def download_suicide_rate(download_dir, url):
     driver.get(url)
     time.sleep(5)  # Give the page some time to load
 
-    wait = WebDriverWait(driver, 10)  # You may adjust the timeout as needed
+    wait = WebDriverWait(driver, 5)  # You may adjust the timeout as needed
 
     # Locate the download button element
     download_button = None
@@ -158,7 +161,7 @@ def download_suicide_rate(download_dir, url):
         # Click the download link
         download_button.click()
         # Wait for the download to complete (you may need to adjust the wait time)
-        time.sleep(10)
+        time.sleep(5)
 
         downloaded_file = os.path.join(os.path.expanduser('~'), 'Downloads', 'data-table.csv').replace('\\', '/')
         destination_file = Path(os.path.join(download_dir, 'suicideRate.csv').replace('\\', '/'))
@@ -174,18 +177,35 @@ def download_suicide_rate(download_dir, url):
 
 # Guarda un dataframe en un csv
 def save_csv(dataframe, nombre_archivo):
-    ruta = 'resultados/' + nombre_archivo
-    dataframe.to_csv(ruta, index=False)
+    folder_path = 'resultados/'
+    # Check if the folder exists, and create it if it doesn't
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    # Save the DataFrame to the CSV file
+    dataframe.to_csv(folder_path+nombre_archivo, index=False)
 
 # Conexion con la base de datos
-def conectarBBDD():
+def connect_ddbb():
+    un = 'admin'
+    cs = '(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1521)(host=adb.eu-madrid-1.oraclecloud.com))(connect_data=(service_name=g067633159c582f_dbmm_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))'
+    pw = getpass.getpass(f'Enter password for {un}: ')
+    try:
+        connection = oracledb.connect(user=un, password=pw, dsn=cs)
+        with connection.cursor() as cursor:
+            sql = """select systimestamp from dual"""
+            for r, in cursor.execute(sql):
+                print(r)
+    except oracledb.Error as e:
+        error, = e.args
+        print(error.message)
+        traceback.print_tb(e.__traceback__)
 
-    return 1
+    return connection
 
 # Menu con las distintas opciones del programa
 def menu(columnas_eliminadas):
     while True:
-        opcion = input("Opciones:\n1. Descargar datos de mortalidad\n2. Procesar datos de SuicideRate\n3. Procesar datos de UnemploymentData\n4. Eliminar archivos de la carpeta csv y resultados\n5. Salir\nSelecciona una opción: ")
+        opcion = input("Opciones:\n1. Descargar datos de mortalidad\n2. Procesar datos de SuicideRate\n3. Procesar datos de UnemploymentData\n4. Eliminar archivos de la carpeta csv y resultados\n9. Salir\nSelecciona una opción: ")
 
         # Opcion 1: Descarga, transformacion a dataframe y preprocesamiento del dataset cdc/mortality de kaggle
         if opcion == "1":
@@ -227,9 +247,13 @@ def menu(columnas_eliminadas):
             shutil.rmtree("csv")
             shutil.rmtree("resultados")
             print('Archivos eliminados')
+        
+        elif opcion == "5":
+            print("Iniciando conexion con la base de datos...")
+            cnx = connect_ddbb()
 
         # Opcion de salida
-        elif opcion == "5":
+        elif opcion == "9":
             break
         else:
             print("Opción no válida. Por favor, selecciona una opción válida.")
