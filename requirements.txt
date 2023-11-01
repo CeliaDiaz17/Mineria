@@ -10,3 +10,4 @@ kaggle
 webdriver_manager
 geckodriver
 oracledb
+bandit

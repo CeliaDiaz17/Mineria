@@ -13,6 +13,7 @@ from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from pathlib import Path
 import getpass
@@ -58,51 +59,69 @@ def comprobaciones():
     print(f"\tTotal rows: {len(data)}")
 
 # Lee un archuvo csv pasando su ruta, lo transforma en un dataframe y lo devuelve
+# df.astype()
 def csv_to_df(ruta):
     nRowsRead = None
     data = pd.read_csv(ruta, delimiter=',', nrows = nRowsRead,low_memory=False)
     data.dataframeName = ruta
     return data
 
+# Une los csv's 
+def join_csvs(folder_path):
+    data = pd.DataFrame()
+    cont = 1
+    for filename in os.listdir(folder_path):
+        print('Archivo', cont)
+        cont += 1
+        if filename.endswith('.csv'):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                data_temp = (csv_to_df(file_path))
+                data = pd.concat([data, data_temp], ignore_index=True)
+            except pd.errors.EmptyDataError:
+                print(f"El archivo {filename} está vacío.")
+
+    return data
+            
+def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
+    try:
+        data_temp = csv_to_df(fodler_path)
+        # Eliminacion de filas
+        data_temp = data_temp[data_temp['manner_of_death']==2]
+        #print(f"Filas tras la seleccion de suicidios: {len(dataTemp)}")
+        data_temp = data_temp[data_temp['130_infant_cause_recode'].isnull()]
+        #print(f"Filas tras la eliminacion de los niños: {len(dataTemp)}")
+
+        # Eliminacion de columnas no utiles
+        columns_corrected_removed = [col for col in columns_removed if col in data_temp.columns.to_list()]
+        data_temp.drop(columns_corrected_removed, axis = 1, inplace = True)
+
+        # Define un diccionario de mapeo para realizar la sustitución de valores
+        mapeo_valores = {1: 8, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 26}
+        # Utiliza la función 'replace' para aplicar el mapeo a la columna 'education_2003_revision' y une las columnas del 1989 y 2003 
+        data_temp['education_2003_revision'] = data_temp['education_2003_revision'].replace(mapeo_valores)
+        data_temp['education'] = data_temp['education_1989_revision'].fillna(data_temp['education_2003_revision'])
+
+        # Eliminacion de columnas despues de combinarlas en una nueva
+        data_temp.drop(['education_1989_revision', 'education_2003_revision'], axis=1, inplace=True)
+    except pd.errors.EmptyDataError:
+                print(f"El archivo está vacío.")
+    
+    return data_temp
+    
 # Lee todos los archivos csv's de una carpeta dada, los tranforma en dataframe, los unes, y se realiza un procesamiento sobre los datos eliminando y unificando ciertas columnas
-def preprocessing_suicide_data(folder_path, columnasEliminadas):
+def preprocessing_suicide_data_group(folder_path, columns_removed):
     cont = 2005
     data = pd.DataFrame()
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
-            try:
-                print("Inicio de la limpieza del año:", str(cont))
-                dataTemp = (csv_to_df(file_path))
-
-                # Eliminacion de filas
-                dataTemp = dataTemp[dataTemp['manner_of_death']==2]
-                #print(f"Filas tras la seleccion de suicidios: {len(dataTemp)}")
-                dataTemp = dataTemp[dataTemp['130_infant_cause_recode'].isnull()]
-                #print(f"Filas tras la eliminacion de los niños: {len(dataTemp)}")
-
-                # Eliminacion de columnas no utiles
-                columnasEl = [col for col in columnasEliminadas if col in dataTemp.columns.to_list()]
-                dataTemp.drop(columnasEl, axis = 1, inplace = True)
-
-                # Define un diccionario de mapeo para realizar la sustitución de valores
-                mapeo_valores = {1: 8, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 26}
-                # Utiliza la función 'replace' para aplicar el mapeo a la columna 'education_2003_revision' y une las columnas del 1989 y 2003 
-                dataTemp['education_2003_revision'] = dataTemp['education_2003_revision'].replace(mapeo_valores)
-                dataTemp['education'] = dataTemp['education_1989_revision'].fillna(dataTemp['education_2003_revision'])
-
-                # Eliminacion de columnas despues de combinarlas en una nueva
-                dataTemp.drop(['education_1989_revision', 'education_2003_revision'], axis=1, inplace=True)
-
-                # Concatenacion en el data frame final
-                data = pd.concat([data, dataTemp], ignore_index=True)
-
-            except pd.errors.EmptyDataError:
-                print(f"El archivo {filename} está vacío.")
+            data_temp = prepocessiong_suicide_data_unitary(file_path, columns_removed)            
+            data = pd.concat([data, data_temp], ignore_index=True)
             print("Fin de la limpieza del año: ", str(cont),"\n")
             cont+=1
 
-    shutil.rmtree(folder_path)
+    print(len(data))
     return data
 
 # Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 solo para el unployment dataset
@@ -110,14 +129,12 @@ def preprocessing_unemployment_data(path):
     folder_path = path + "/unemployment_data_us.csv"
     data = csv_to_df(folder_path)
     data = data[(data['Year']>=2005) & (data['Year']<=2015)]
-    shutil.rmtree(path)
     return data
 
 # Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 solo para suicide_rate dataset
 def preprocessing_suicide_rate_data(folder_path, file_name):
     data = csv_to_df(folder_path+file_name)
     data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
-    shutil.rmtree(folder_path)
     return data
 
 # Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 de unployment o suicide_rate dataset
@@ -130,7 +147,6 @@ def preprocessing_suicide_rate_or_unemployment_data(op, folder_path):
             data = data[(data['Year']>=2005) & (data['Year']<=2015)]
         else: print("Opcion incorrecta, ha de ser 1 o 2")
         break
-    shutil.rmtree(folder_path)
     return data
 
 # Funcion que descarga cualquier dataset de la pagina de kaggle usando su api indicando el nombre del dataset y la carpeta donde quieres guardarlo
@@ -139,13 +155,17 @@ def download_kaggle(download_dir,dataset_name):
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(str(dataset_name), path = str(download_dir), unzip = True)
+    os.chmod(download_dir, 0o755)
 
-# Descarga el dataset de la pagina de cdc.gov haciendo uso de selenium, necesita el enlace de la pagina y el directorio de descarga    
+# Descarga el dataset de la pagina de cdc.gov haciendo uso de selenium, necesita el enlace de la pagina y el directorio de descarga   
+# Mirar headless 
 def download_suicide_rate(download_dir, url):
+    options = Options()
+    options.add_argument("-headless") 
     # Use GeckoDriverManager to automatically download the compatible GeckoDriver for Firefox
-    driver = webdriver.Firefox()
+    driver = webdriver.Firefox(options=options)
     driver.get(url)
-    time.sleep(5)  # Give the page some time to load
+    #time.sleep(5)  # Give the page some time to load
 
     wait = WebDriverWait(driver, 5)  # You may adjust the timeout as needed
 
@@ -164,7 +184,7 @@ def download_suicide_rate(download_dir, url):
         time.sleep(5)
 
         downloaded_file = os.path.join(os.path.expanduser('~'), 'Downloads', 'data-table.csv').replace('\\', '/')
-        destination_file = Path(os.path.join(download_dir, 'suicideRate.csv').replace('\\', '/'))
+        destination_file = Path(os.path.join(download_dir, 'suicide_rate.csv').replace('\\', '/'))
 
         # Ensure the destination directory exists
         os.makedirs(download_dir, exist_ok=True)
@@ -184,9 +204,18 @@ def save_csv(dataframe, nombre_archivo):
     # Save the DataFrame to the CSV file
     dataframe.to_csv(folder_path+nombre_archivo, index=False)
 
+# Elimina todos los archivos csv's del proyecto
+def delete_csv(dir_list):
+    for dir in dir_list:
+        try:
+            shutil.rmtree(dir)
+        except FileNotFoundError:
+            print(f"El directorio {dir}, no existe")
+    
 # Conexion con la base de datos
+# VCP
 def connect_ddbb():
-    un = 'admin'
+    un = 'user_r'
     cs = '(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1521)(host=adb.eu-madrid-1.oraclecloud.com))(connect_data=(service_name=g067633159c582f_dbmm_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))'
     pw = getpass.getpass(f'Enter password for {un}: ')
     try:
@@ -203,57 +232,118 @@ def connect_ddbb():
     return connection
 
 # Menu con las distintas opciones del programa
-def menu(columnas_eliminadas):
-    while True:
-        opcion = input("Opciones:\n1. Descargar datos de mortalidad\n2. Procesar datos de SuicideRate\n3. Procesar datos de UnemploymentData\n4. Eliminar archivos de la carpeta csv y resultados\n9. Salir\nSelecciona una opción: ")
+def menu(columns_removed):
+    # Mortality dataset info
+    download_dir_mortalidad = "csv/mortalidad/"
+    dataset_mortalidad = "cdc/mortality"
+    # Suicide rate dataset info
+    download_dir_suicide_rate = "csv/suicide_rate/"
+    dataset__suicide_rate_url = "https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm"
+    # Unemployment dataset info
+    download_dir_unemployment = "csv/unemployment/"
+    dataset_unemployment = "aniruddhasshirahatti/us-unemployment-dataset-2010-2020"
 
-        # Opcion 1: Descarga, transformacion a dataframe y preprocesamiento del dataset cdc/mortality de kaggle
+    while True:
+        opcion = input("Opciones:\n1. Descargar datos de 'mortalidad'\n2. Descargar datos de 'suicide rate'\n3. Descargar datos de 'unemployment data'\n4. Crear capa RAW 'mortalidad'\n5. Crear capa RAW 'suicide rate'\n6. Crear capa RAW 'unemployment data'\n7. Crear capa SILVER de 'mortalidad' desde RAW (out of memory)\n8. Crear capa SILVER de 'mortalidad' optimizado\n9. Crear capa SILVER de 'suicide rate'\n10. Crear capa SILVER de 'unemployment data'\n11. Eliminar archivos csv's\n12. Conexion con la base de datos\n13. Salir\nSelecciona una opción: ")
+
+        # Opcion 1: Descarga del dataset cdc/mortality de kaggle 
         if opcion == "1":
-            download_dir_mortalidad = "csv/mortalidad/"
-            dataset_mortalidad = "cdc/mortality"
             print("Inicio de la descarga del data set", dataset_mortalidad)
             download_kaggle(download_dir_mortalidad, dataset_mortalidad)
-            print("Inicio de la unión de CSVs para generar SuicideData")
-            preprocess_suicide_data = preprocessing_suicide_data(download_dir_mortalidad, columnas_eliminadas)
-            print("Inicio del guardado de datos...")
-            save_csv(preprocess_suicide_data, "suicide_data.csv")
-            print("Fin del guardado de datos en el archivo suicid_data.csv")
+            for filename in os.listdir(download_dir_mortalidad):
+                if filename.endswith(".json"):
+                    file_path = os.path.join(download_dir_mortalidad, filename)
+                    os.remove(file_path)
+            
+            print('Fin de la descraga de', dataset_mortalidad,'\n')
         
-        # Opcion 2: Descarga, transformacion a dataframe y preprocesamiento del dataset suicide_rate de cdc.gov
+        # Opcion 2: Descarga del dataset suicide_rate de cdc.gov 
         elif opcion == "2":
-            download_dir_suicide_rate = "csv/suicideRate/"
-            dataset__suicide_rate_url = "https://www.cdc.gov/nchs/pressroom/sosmap/suicide-mortality/suicide.htm"
-            print("Inicio del procesamiento de SuicideRateData")
+            print("Inicio de la descarga de SuicideRateData")
             download_suicide_rate(download_dir_suicide_rate, dataset__suicide_rate_url)
+            print('Fin de la descraga de SuicideRateData\n')
+            
+        # Opcion 3: Descarga del dataset unemployment de kaggle 
+        elif opcion == "3":
+            print("Inicio de la descarga de UnemploymentData")
+            download_kaggle(download_dir_unemployment, dataset_unemployment)
+            os.remove('csv/unemployment/unemployment_data_us_state.csv')
+            print('Fin de la descraga de UnemploymentData\n')
+
+        # Opcion 4: Creacion de la capa RAW del dataset de mortalidad    
+        elif opcion == '4':
+            print("Inicio de la creacion del archivo 'raw_mortalidad_data'")
+            raw_df_mortalidad = join_csvs(download_dir_mortalidad)
+            save_csv(raw_df_mortalidad, 'raw_mortalidad_data.csv')
+            print('Archivo raw creado\n')
+
+        # Opcion 5: Creacion de la capa RAW del dataset suicide rate
+        elif opcion == '5':
+            print("Inicio de la creacion del archivo 'raw_suicide_rate'")
+            print(os.listdir(download_dir_suicide_rate)[0])
+            ruta = os.path.join(download_dir_suicide_rate, os.listdir(download_dir_suicide_rate)[0])
+            raw_df_suicide_rate = csv_to_df(ruta)
+            save_csv(raw_df_suicide_rate, 'raw_suicide_rate_data.csv')
+            print('Archivo raw creado\n')
+        
+        # Opcion 6: Creacion de la capa RAW del dataset unemployment
+        elif opcion == '6':
+            print("Inicio de la creacion del archivo 'raw_unemployment_data'")
+            raw_df_unemployment_data = csv_to_df(os.path.join(download_dir_suicide_rate, os.listdir(download_dir_suicide_rate)[0]))
+            save_csv(raw_df_unemployment_data, 'raw_unemployment_data.csv')
+            print('Archivo raw creado\n')
+
+        # Opcion 7: Creacion de la capa SILVER del dataset mortalidad desde la capa RAW (out of memory)
+        elif opcion == '7':
+            print("Inicio del preprocesamiento del dataset de 'mortalidad'")
+            preprocess_suicide_data = prepocessiong_suicide_data_unitary('resultados/raw_data_mortalidad.csv', columns_removed)
+            save_csv(preprocess_suicide_data, "silver_suicide_data.csv")
+            print("Fin del guardado de datos en el archivo silver_suicide_data.csv\n")
+
+        # Opcion 8: Creacion de la capa SILVER del dataset mortalidad
+        elif opcion == '8':
+            print("Inicio del preprocesamiento del dataset de 'mortalidad'")
+            preprocess_suicide_data = preprocessing_suicide_data_group(download_dir_mortalidad, columns_removed)
+            print("Inicio del guardado de datos...")
+            save_csv(preprocess_suicide_data, "silver_suicide_data.csv")
+            print("Fin del guardado de datos en el archivo silver_suicide_data.csv\n")
+        
+        # Opcion 9: Creacion de la capa SILVER del dataset suicide rate
+        elif opcion == '9':
+            print("Inicio del preprocesamiento del dataset de 'suicide rate'")
             preprocess_suicide_rate_data = preprocessing_suicide_rate_or_unemployment_data(1, download_dir_suicide_rate)
             print("Inicio del guardado de datos...")
-            save_csv(preprocess_suicide_rate_data, "suicide_rate_data.csv")
-            print("Fin del guardado de datos en el archivo suicide_rate_data.csv")
-            
-        # Opcion 3: Descarga, transformacion a dataframe y preprocesamiento del dataset unemployment de kaggle
-        elif opcion == "3":
-            download_dir_unemployment = "csv/unemployment/"
-            dataset_unemployment = "aniruddhasshirahatti/us-unemployment-dataset-2010-2020"
-            print("Inicio del procesamiento de UnemploymentData")
-            download_kaggle(download_dir_unemployment, dataset_unemployment)
+            save_csv(preprocess_suicide_rate_data, "silver_suicide_rate_data.csv")
+            print("Fin del guardado de datos en el archivo suicide_rate_data.csv\n")
+
+        # Opcion 10: Creacion de la capa SILVER del dataset unemployment
+        elif opcion == '10':
+            print("Inicio del preprocesamiento del dataset de 'unemployment'")
             preprocess_data = preprocessing_suicide_rate_or_unemployment_data(2,download_dir_unemployment)
             print("Inicio del guardado de datos...")
-            save_csv(preprocess_data, "unemployment_data.csv")
-            print("Fin del guardado de datos en el archivo unemployment_data.csv")
+            save_csv(preprocess_data, "silver_unemployment_data.csv")
+            print("Fin del guardado de datos en el archivo unemployment_data.csv\n")
 
-        # Opcion para eliminar todos los csv's
-        elif opcion == "4":
-            print('Eliminando archivos de la carpeta csv y resultados...')
-            shutil.rmtree("csv")
-            shutil.rmtree("resultados")
-            print('Archivos eliminados')
-        
-        elif opcion == "5":
+        # Opcion para eliminar los csv's del proyecto
+        elif opcion == "11":
+            op='0'
+            while op >'4' or op <'1':
+                op=input("\t1. Eliminar el directorio 'csv'\n\t2. Eliminar el directorio 'resultados'\n\t3. Eliminar ambos\n\t4. Salir\n\tIntroduzca una opcion: ")
+                if op == '1': delete_csv(["csv"])
+                elif op == '2': delete_csv(["resultados"])
+                elif op == '3': delete_csv(["csv","resultados"])
+                elif op == '4': print()
+                else: print(f"Opción no válida. Por favor, selecciona una opción válida.")
+
+        # Opcion 12: Conexion con la base de datos
+        elif opcion == "12":
             print("Iniciando conexion con la base de datos...")
             cnx = connect_ddbb()
+            print(cnx)
+            cnx.close()
 
-        # Opcion de salida
-        elif opcion == "9":
+        # Opcion 13: Salida
+        elif opcion == "13":
             break
         else:
             print("Opción no válida. Por favor, selecciona una opción válida.")
