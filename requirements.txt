@@ -8,6 +8,5 @@ pandas_profiling
 python-magic
 kaggle
 webdriver_manager
-geckodriver
 oracledb
-bandit
+sqlalchemy

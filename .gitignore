@@ -5,6 +5,7 @@
 /UnemploymentData
 tempCodeRunnerFile.py
 ddbb_passaword.txt
+*.txt
 *.csv
 *.json
 *.log
