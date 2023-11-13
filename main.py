@@ -113,11 +113,8 @@ def join_csvs(folder_path):
 def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
     try:
         data_temp = csv_to_df(fodler_path)
-        # Eliminacion de filas
+        # Seleccionar suicidios
         data_temp = data_temp[data_temp['manner_of_death']==2]
-        #print(f"Filas tras la seleccion de suicidios: {len(dataTemp)}")
-        data_temp = data_temp[data_temp['130_infant_cause_recode'].isnull()]
-        #print(f"Filas tras la eliminacion de los niños: {len(dataTemp)}")
 
         # Eliminacion de columnas no utiles
         columns_corrected_removed = [col for col in columns_removed if col in data_temp.columns.to_list()]
@@ -260,7 +257,7 @@ def create_raw_unemployment_data(download_dir):
     return 1
 
 def create_silver_mortalidad_data(download_dir):
-    columns_removed = ["infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
+    columns_removed = ["113_cause_recode","39_cause_recode","infant_age_recode_22","130_infant_cause_recode","method_of_disposition", "autopsy", "icd_code_10th_revision","icd_code_10", "number_of_entity_axis_conditions", "entity_condition_1", "entity_condition_2", "entity_condition_3", "entity_condition_4", "entity_condition_5", "entity_condition_6", "entity_condition_7", "entity_condition_8", "entity_condition_9", "entity_condition_10", "entity_condition_11", "entity_condition_12", "entity_condition_13", "entity_condition_14", "entity_condition_15", "entity_condition_16", "entity_condition_17", "entity_condition_18", "entity_condition_19", "entity_condition_20", "number_of_record_axis_conditions", "record_condition_1", "record_condition_2", "record_condition_3", "record_condition_4", "record_condition_5", "record_condition_6", "record_condition_7", "record_condition_8", "record_condition_9", "record_condition_10", "record_condition_11", "record_condition_12", "record_condition_13", "record_condition_14", "record_condition_15", "record_condition_16", "record_condition_17", "record_condition_18", "record_condition_19", "record_condition_20","age_recode_27","age_recode_12"]
     print("Inicio del preprocesamiento del dataset de 'mortalidad'")
     preprocess_suicide_data = preprocessing_suicide_data_group(download_dir, columns_removed)
     print("Inicio del guardado de datos...")
@@ -355,7 +352,10 @@ def menu():
         # Opcion 13: Salida
         elif opcion == "99":
             break
-        
+        # Opcion para cceder al menu viejo
+        elif opcion == '100':
+            menu()
+
 if __name__ == '__main__':
     menu()
 
