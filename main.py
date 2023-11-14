@@ -94,6 +94,7 @@ def download_suicide_rate(download_dir, url):
 
 # Une los csv's 
 def join_csvs(folder_path):
+    num_rows = 0
     data = pd.DataFrame()
     cont = 1
     for filename in os.listdir(folder_path):
@@ -103,13 +104,36 @@ def join_csvs(folder_path):
             file_path = os.path.join(folder_path, filename)
             try:
                 data_temp = (csv_to_df(file_path))
+                num_rows += len(data_temp)
                 data = pd.concat([data, data_temp], ignore_index=True)
             except pd.errors.EmptyDataError:
                 print(f"El archivo {filename} está vacío.")
-
+    print(num_rows)
     return data
 
-# Lee un archivo csv lo pasa a dataframe y realiza el procesamiento necesario para cerar la capa silver. Devuelve un dataframe            
+def raw_mortalidad_data(folder_path,output_file_name):
+    df = csv_to_df(os.path.join(folder_path,os.listdir(folder_path)[0]))
+    output_file_path = save_csv(df, output_file_name)
+    output_file_path = 'resultados/'+output_file_name
+
+    with open(output_file_path, 'w', newline = '') as com_file:
+        com_writer = csv.writer(com_file, delimiter=',')
+        for file_num, filename in enumerate(os.listdir(folder_path)):
+            file_num += 1
+            print('Archivo', file_num)
+            if filename.endswith('.csv'):
+                file_path = os.path.join(folder_path, filename)
+                with open(file_path, 'r', newline = '') as file:
+                    file_reader = csv.reader(file)
+                    # Evitar las cabeceras de los csvs
+                    if file_num != 1: next(file_reader)
+                    for row in file_reader:
+                        com_writer.writerow(row)
+
+                    
+
+
+# Lee un archivo csv lo pasa a dataframe y realiza el procesamiento necesario para crear la capa silver. Devuelve un dataframe            
 def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
     try:
         data_temp = csv_to_df(fodler_path)
@@ -133,7 +157,7 @@ def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
     
     return data_temp
     
-# Lee todos los archivos csv's de una carpeta dada, los tranforma en dataframe, los unes, y se realiza un procesamiento sobre los datos eliminando y unificando ciertas columnas
+# Lee todos los archivos csv's de una carpeta dada, los tranforma en dataframe, los une, y se realiza un procesamiento sobre los datos eliminando y unificando ciertas columnas
 def preprocessing_suicide_data_group(folder_path, columns_removed):
     cont = 2005
     data = pd.DataFrame()
@@ -174,13 +198,15 @@ def preprocessing_suicide_rate_or_unemployment_data(op, folder_path):
     return data
 
 # Guarda un dataframe en un csv
-def save_csv(dataframe, nombre_archivo):
+def save_csv(dataframe, file_name):
     folder_path = 'resultados/'
     # Check if the folder exists, and create it if it doesn't
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     # Save the DataFrame to the CSV file
-    dataframe.to_csv(folder_path+nombre_archivo, index=False)
+    path = folder_path+file_name
+    dataframe.to_csv(path, index=False)
+    return path
 
 # Elimina todos los archivos csv's del proyecto
 def delete_csv(dir_list):
@@ -235,8 +261,14 @@ def upload_data(cnx, df, table_name):
 
 def create_raw_mortalidad_data(download_dir):
     print("Inicio de la creacion del archivo 'raw_mortalidad_data'")
+    raw_mortalidad_data(download_dir, 'raw_mortalidad_data.csv')
+    print('Archivo raw creado\n')
+    return 1
+
+def create_raw_mortalidad_data_old(download_dir):
+    print("Inicio de la creacion del archivo 'raw_mortalidad_data'")
     raw_df_mortalidad = join_csvs(download_dir)
-    save_csv(raw_df_mortalidad, 'raw_mortalidad_data.csv')
+    save_csv(raw_df_mortalidad, 'raw_mortalidad_data_old.csv')
     print('Archivo raw creado\n')
     return 1
 
