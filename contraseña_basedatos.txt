@@ -1,8 +1,0 @@
-p2cZJ_iPs_AtE6S
-
-User_r = 3VypJ8EZeVi4HNy
-User_w = 3VypJ8EZeVi4HNy
-
-ADMIN = KSE6S8PL9zhd4YD
-
-Wallet = Q4cwqkqq4u!NBpv
