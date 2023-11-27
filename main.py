@@ -207,7 +207,7 @@ def transform_mortalidad_data(dir, columns_removed): #NUEVO
         data_temp.rename(columns={'age_recode_52': 'age_recode_21'}, inplace=True)
         
         mapeo_valores2 = {(1-8, 18): 1-8, (19, 11): 11, (20, 12): 12, (21, 22, 23, 24, 25): 17}
-        data_temp['education'] = data_temp['education'].replace(mapeo_valores2) 
+        data_temp['education'] = data_temp['education'].replace(mapeo_valores2).astype(int) 
     except pd.errors.EmptyDataError:
                 print(f"El archivo está vacío.")
     data = pd.concat([data, data_temp], ignore_index=True)
