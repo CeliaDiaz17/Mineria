@@ -415,10 +415,16 @@ def unify_suicide_rate_and_unemployment_data(srdir, uddir):
     data_temp = csv_to_df(srdir)
     data_temp2 = csv_to_df(uddir)
     
+    data_temp.drop(['index'], axis=1, inplace=True)
+    data_temp2.drop(['index'], axis=1, inplace=True)
+    
     resultado = pd.merge(data_temp, data_temp2, left_on='YEAR', right_on='Year', how='outer')
     resultado['year'] = resultado['YEAR'].fillna(resultado['Year'])
     resultado.drop(['YEAR', 'Year'], axis=1, inplace=True)
     resultado['year'] = resultado['year'].astype(int)
+    resultado.rename(columns={'RATE': 'suicide_rate'}, inplace=True)
+    resultado.replace('', pd.NA, inplace=True)
+    resultado.insert(0, 'index', range(1, len(resultado) + 1))
     save_csv(resultado, "gold/gold_suicide_rate_and_unemployment_data.csv")
     return 1
 
