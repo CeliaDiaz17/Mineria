@@ -1,0 +1,12 @@
+pandas
+numpy
+requests
+beautifulsoup4
+selenium
+webdriver_manager
+pandas_profiling
+python-magic
+kaggle
+webdriver_manager
+oracledb
+sqlalchemy
