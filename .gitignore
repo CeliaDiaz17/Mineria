@@ -8,6 +8,8 @@ tempCodeRunnerFile.py
 
 *.csv
 *.json
+!kaggle.json
+
 pass.txt
 /raw
 /silver

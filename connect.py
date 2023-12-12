@@ -5,7 +5,28 @@ import sys
 import oracledb
 import pandas as pd
 
+def ddbb_connection_decorator(func):
+    def wrapper(*args, **kwargs):
+        conexion_db = Connect() # Obtener la instancia única de la conexión a la base de datos
+
+        try:
+            conexion_db.open_connection()
+            resultado = func(*args, **kwargs)
+            return resultado
+        
+        finally:
+            conexion_db.close_connection()
+
+    return wrapper
+
 class Connect:
+    _instancia = None
+    _config = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instancia:
+            cls._instancia = super(Connect, cls).__new__(cls, *args, **kwargs)
+        return cls._instancia
 
     def __init__(self):
         self.connection = None
@@ -25,7 +46,8 @@ class Connect:
             error, = e.args
             print(error.message)
             traceback.print_tb(sys.exc_info()[2])
-
+            
+    @ddbb_connection_decorator
     def dump_data(self, schema_name, directory):
         csv_directory = directory
 

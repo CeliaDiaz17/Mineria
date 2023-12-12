@@ -17,6 +17,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from pathlib import Path
 from sqlalchemy import create_engine
+from connect import Connect
 
 # Lee un archuvo csv pasando su ruta, lo transforma en un dataframe y lo devuelve
 def csv_to_df(ruta):
@@ -37,7 +38,6 @@ def download_kaggle(download_dir,dataset_name):
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(str(dataset_name), path = str(download_dir), unzip = True)
-    os.chmod(download_dir, 0o755)
 
 def download_mortalidad(download_dir, dataset):
     print("Inicio de la descarga del data set", dataset)
@@ -113,8 +113,8 @@ def join_csvs(folder_path):
 
 def raw_mortalidad_data(folder_path,output_file_name):
     df = csv_to_df(os.path.join(folder_path,os.listdir(folder_path)[0]))
-    output_file_path = save_csv(df, output_file_name)
-    output_file_path = 'resultados/'+output_file_name
+    output_file_path = save_csv(df, 'raw/' ,output_file_name)
+    output_file_path = 'resultados/raw/'+output_file_name
 
     with open(output_file_path, 'w', newline = '') as com_file:
         com_writer = csv.writer(com_file, delimiter=',')
@@ -129,24 +129,7 @@ def raw_mortalidad_data(folder_path,output_file_name):
                     # Evitar las cabeceras de los csvs
                     if file_num != 1: next(file_reader)
                     for row in file_reader:
-                        com_writer.writerow(row)
-
-
-        for file_num, filename in enumerate(os.listdir(folder_path)):
-            file_num += 1
-            print('Archivo', file_num)
-
-            if filename.endswith('.csv'):
-                file_path = os.path.join(folder_path, filename)
-
-                with open(file_path, 'r', newline = '') as file:
-                    file_reader = csv.reader(file)
-                    
-                    # Evitar las cabeceras de los csvs
-                    if file_num != 1: next(file_reader)
-
-                    for row in file_reader:
-                        com_writer.writerow(row)                 
+                        com_writer.writerow(row)            
 
 # Lee un archivo csv lo pasa a dataframe y realiza el procesamiento necesario para crear la capa silver. Devuelve un dataframe            
 def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
@@ -160,20 +143,21 @@ def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
         data_temp.drop(columns_corrected_removed, axis = 1, inplace = True)
 
         # Define un diccionario de mapeo para realizar la sustitución de valores
-        mapeo_valores = {1: 8, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 26}
+        mapping_education = {1: 8, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 26}
+        mapping_sex = {'M':0, 'F':1}
+        mapping_marital = {'S':0,'M':1,'W':2,'D':3,'U':4}
+
         # Utiliza la función 'replace' para aplicar el mapeo a la columna 'education_2003_revision' y une las columnas del 1989 y 2003 
 
-        data_temp['education_2003_new'] = data_temp['education_2003_revision'].replace(mapeo_valores)
+        data_temp['education_2003_new'] = data_temp['education_2003_revision'].replace(mapping_education)
         data_temp['education'] = data_temp['education_1989_revision'].fillna(data_temp['education_2003_new'])
+
+        data_temp['sex'] = data_temp['sex'].replace(mapping_sex)
+        data_temp['marital_status'] = data_temp['marital_status'].replace(mapping_marital)
+
 
         # Eliminacion de columnas despues de combinarlas en una nueva
         data_temp.drop(['education_1989_revision', 'education_2003_new'], axis=1, inplace=True)
-
-        data_temp['education_2003_revision'] = data_temp['education_2003_revision'].replace(mapeo_valores)
-        data_temp['education'] = data_temp['education_1989_revision'].fillna(data_temp['education_2003_revision'])
-
-        # Eliminacion de columnas despues de combinarlas en una nueva
-        data_temp.drop(['education_1989_revision', 'education_2003_revision'], axis=1, inplace=True)
 
     except pd.errors.EmptyDataError:
                 print(f"El archivo está vacío.")
@@ -211,22 +195,6 @@ def preprocessing_suicide_rate_data(folder_path):
     data = data[(data['YEAR']>=2005)]
     data.insert(0, 'index', range(1, len(data) + 1))
 
-    return data
-
-# Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 de unployment o suicide_rate dataset
-# CLEAN CODE? HACER DOS METODOS
-def preprocessing_suicide_rate_or_unemployment_data(op, folder_path):
-    for file_name in os.listdir(folder_path):
-        data = csv_to_df(folder_path+file_name)
-        # Option 1: suicide_rate
-        if op == 1:
-            data = data[(data['YEAR']>=2005)]
-        # Option 2: uneployment
-        if op == 2:
-            data = data[(data['Year']>=2005)]
-
-        else: print("Opcion incorrecta, ha de ser 1 o 2")
-        break
     return data
 
 #Método para transformar la capa silver a gold del dataset de mortalidad 
@@ -281,8 +249,8 @@ def transform_unemployment_data(dir, columns_removed): #NUEVO
     return data
 
 # Guarda un dataframe en un csv
-def save_csv(dataframe, file_name):
-    folder_path = 'resultados/'
+def save_csv(dataframe, path, file_name):
+    folder_path = 'resultados/'+path
     # Check if the folder exists, and create it if it doesn't
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -318,7 +286,7 @@ def read_config(file):
 
 def create_raw_mortalidad_data(download_dir):
     print("Inicio de la creacion del archivo 'raw_mortalidad_data'")
-    raw_mortalidad_data(download_dir, 'raw/raw_mortalidad_data.csv')
+    raw_mortalidad_data(download_dir, 'raw_mortalidad_data.csv')
     print('Archivo raw creado\n')
     return 1
 
@@ -327,14 +295,14 @@ def create_raw_sucide_rate_data(download_dir):
     print(os.listdir(download_dir)[0])
     ruta = os.path.join(download_dir, os.listdir(download_dir)[0])
     raw_df_suicide_rate = csv_to_df(ruta)
-    save_csv(raw_df_suicide_rate, 'raw/raw_suicide_rate_data.csv')
+    save_csv(raw_df_suicide_rate, 'raw/', 'raw_suicide_rate_data.csv')
     print('Archivo raw creado\n')
     return 1
 
 def create_raw_unemployment_data(download_dir):
     print("Inicio de la creacion del archivo 'raw_unemployment_data'")
     raw_df_unemployment_data = csv_to_df(os.path.join(download_dir, os.listdir(download_dir)[0]))
-    save_csv(raw_df_unemployment_data, 'raw/raw_unemployment_data.csv')
+    save_csv(raw_df_unemployment_data, 'raw/', 'raw_unemployment_data.csv')
     print('Archivo raw creado\n')
     return 1
 
@@ -343,7 +311,7 @@ def create_silver_mortalidad_data(download_dir):
     print("Inicio del preprocesamiento del dataset de 'mortalidad'")
     preprocess_suicide_data = preprocessing_suicide_data_group(download_dir, columns_removed)
     print("Inicio del guardado de datos...")
-    save_csv(preprocess_suicide_data, "silver/silver_suicide_data.csv")
+    save_csv(preprocess_suicide_data, "silver/","silver_suicide_data.csv")
     print("Fin del guardado de datos en el archivo silver_suicide_data.csv\n")
 
     return 1
@@ -377,7 +345,7 @@ def create_gold_mortalidad_data(dir): #NUEVO
     transform_mortalidad = transform_mortalidad_data(dir, columns_removed)
     
     print("Inicio del guardado de datos...")
-    save_csv(transform_mortalidad, "gold/gold_mortalidad_data.csv")
+    save_csv(transform_mortalidad, "gold/", "gold_mortalidad_data.csv")
     print("Fin del guardado de datos en el archivo gold_mortalidad_data.csv\n")
     return 1
 
@@ -392,7 +360,7 @@ def create_gold_suicide_rate_data(dir): #NUEVO
     transform_suicide_rate = transform_suicide_rate_data(dir, columns_removed)
     
     print("Inicio del guardado de datos...")
-    save_csv(transform_suicide_rate, "gold/gold_suicide_rate_data.csv")
+    save_csv(transform_suicide_rate, "gold/", "gold_suicide_rate_data.csv")
     print("Fin del guardado de datos en el archivo gold_suicide_rate_data.csv\n")
     return 1
 
@@ -407,7 +375,7 @@ def create_gold_unemployment_data(dir): #NUEVO
     transform_unemployment_rate = transform_unemployment_data(dir, columns_removed)
     
     print("Inicio del guardado de datos...")
-    save_csv(transform_unemployment_rate, "gold/gold_unemployment_data.csv")
+    save_csv(transform_unemployment_rate, "gold/", "gold_unemployment_data.csv")
     print("Fin del guardado de datos en el archivo gold_unemployment_data.csv\n")
     return 1
 
@@ -427,8 +395,29 @@ def unify_suicide_rate_and_unemployment_data(srdir, uddir):
     resultado.rename(columns={'RATE': 'suicide_rate'}, inplace=True)
     resultado.replace('', pd.NA, inplace=True)
     resultado.insert(0, 'index', range(1, len(resultado) + 1))
-    save_csv(resultado, "gold/gold_suicide_rate_and_unemployment_data.csv")
+    save_csv(resultado, "gold/", "gold_suicide_rate_and_unemployment_data.csv")
     return 1
+
+def upload_raw():
+    print("Inicio de la subida de la capa RAW")
+    source_path = 'resultados/raw/'
+    db = Connect()
+    db.dump_data(schema_name='SCHEME_RAW', directory=source_path)
+    print("Capa subida")
+
+def upload_silver():
+    print("Inicio de la subida de la capa SILVER")
+    source_path = 'resultados/silver/'
+    db = Connect()
+    db.dump_data(schema_name='SCHEME_SILVER', directory=source_path)
+    print("Capa subida")
+
+def upload_gold():
+    print("Inicio de la subida de la capa GOLD")
+    source_path = 'resultados/gold/'
+    db = Connect()
+    db.dump_data(schema_name='SCHEME_GOLD', directory=source_path)
+    print("Capa subida")
 
 def delete_csvs_menu():
     op='0'
@@ -458,7 +447,7 @@ def menu():
     gold_unemployment_rate = "resultados/gold/gold_unemployment_data.csv"
 
     while True:
-        opcion = input("Opciones:\n1. Menu descarga de datasets\n2. Menu creacion capa RAW\n3. Menu creacion capa SILVER\n4. Menu creacion capa GOLD\n97. Eliminar archivos csv's\n98. Conexion con la base de datos\n99. Salir\nSelecciona una opción: ")   
+        opcion = input("Opciones:\n1. Menu descarga de datasets\n2. Menu creacion capa RAW\n3. Menu creacion capa SILVER\n4. Menu creacion capa GOLD\n5. Eliminar archivos csv's\n6. Conexion con la base de datos\n99. Salir\nSelecciona una opción: ")   
         # Submenu para la descarga
         if opcion == '1':
             while True:
@@ -499,17 +488,19 @@ def menu():
                 elif menu_op == '5': break
                 else: print("Opción no válida. Por favor, selecciona una opción válida.")
 
-        elif opcion == '12':
-                print()
         # Opcion para eliminar los csv's del proyecto
-        elif opcion == "97":
+        elif opcion == "5":
             delete_csvs_menu()
-        # Opcion 12: Conexion con la base de datos
-        elif opcion == "98":
-            print("Iniciando conexion con la base de datos...")
-            cnx = connect_ddbb()
-            print(cnx)
-            cnx.close()
+
+        # Opcion 6: Conexion con la base de datos
+        elif opcion == "6":
+            while True:
+                menu_op = input("\tOpciones:\n\t1. Subir capa RAW\n\t2. Subir capa SILVER\n\t3. Subir capa GOLD\n\t4. Salir\n\tSeleccione una opcion: ")
+                if menu_op == '1': upload_raw()
+                elif menu_op == '2': upload_silver()
+                elif menu_op == '3': upload_gold()
+                elif menu_op == '4': break
+                else: print("Opción no válida. Por favor, selecciona una opción válida.")
 
         # Opcion 13: Salida
         elif opcion == "99":
