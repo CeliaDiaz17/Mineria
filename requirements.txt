@@ -10,3 +10,4 @@ kaggle
 webdriver_manager
 oracledb
 sqlalchemy
+
