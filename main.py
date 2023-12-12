@@ -118,6 +118,7 @@ def raw_mortalidad_data(folder_path,output_file_name):
 
     with open(output_file_path, 'w', newline = '') as com_file:
         com_writer = csv.writer(com_file, delimiter=',')
+
         for file_num, filename in enumerate(os.listdir(folder_path)):
             file_num += 1
             print('Archivo', file_num)
@@ -129,6 +130,23 @@ def raw_mortalidad_data(folder_path,output_file_name):
                     if file_num != 1: next(file_reader)
                     for row in file_reader:
                         com_writer.writerow(row)
+
+
+        for file_num, filename in enumerate(os.listdir(folder_path)):
+            file_num += 1
+            print('Archivo', file_num)
+
+            if filename.endswith('.csv'):
+                file_path = os.path.join(folder_path, filename)
+
+                with open(file_path, 'r', newline = '') as file:
+                    file_reader = csv.reader(file)
+                    
+                    # Evitar las cabeceras de los csvs
+                    if file_num != 1: next(file_reader)
+
+                    for row in file_reader:
+                        com_writer.writerow(row)                 
 
 # Lee un archivo csv lo pasa a dataframe y realiza el procesamiento necesario para crear la capa silver. Devuelve un dataframe            
 def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
@@ -144,11 +162,19 @@ def prepocessiong_suicide_data_unitary(fodler_path, columns_removed):
         # Define un diccionario de mapeo para realizar la sustitución de valores
         mapeo_valores = {1: 8, 2: 19, 3: 20, 4: 21, 5: 22, 6: 23, 7: 24, 8: 25, 9: 26}
         # Utiliza la función 'replace' para aplicar el mapeo a la columna 'education_2003_revision' y une las columnas del 1989 y 2003 
+
         data_temp['education_2003_new'] = data_temp['education_2003_revision'].replace(mapeo_valores)
         data_temp['education'] = data_temp['education_1989_revision'].fillna(data_temp['education_2003_new'])
 
         # Eliminacion de columnas despues de combinarlas en una nueva
         data_temp.drop(['education_1989_revision', 'education_2003_new'], axis=1, inplace=True)
+
+        data_temp['education_2003_revision'] = data_temp['education_2003_revision'].replace(mapeo_valores)
+        data_temp['education'] = data_temp['education_1989_revision'].fillna(data_temp['education_2003_revision'])
+
+        # Eliminacion de columnas despues de combinarlas en una nueva
+        data_temp.drop(['education_1989_revision', 'education_2003_revision'], axis=1, inplace=True)
+
     except pd.errors.EmptyDataError:
                 print(f"El archivo está vacío.")
     
@@ -166,30 +192,39 @@ def preprocessing_suicide_data_group(folder_path, columns_removed):
             print("Fin de la limpieza del año: ", str(cont),"\n")
             cont+=1
 
-    print(len(data))
+    data.insert(0, 'index', range(1, len(data) + 1))
+
     return data
 
 # Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 solo para el unployment dataset
 def preprocessing_unemployment_data(path):
     folder_path = path + "/unemployment_data_us.csv"
     data = csv_to_df(folder_path)
-    data = data[(data['Year']>=2005) & (data['Year']<=2015)]
+    data = data[(data['Year']>=2005)]
+    data.insert(0, 'index', range(1, len(data) + 1))
+
     return data
 
 # Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 solo para suicide_rate dataset
-def preprocessing_suicide_rate_data(folder_path, file_name):
-    data = csv_to_df(folder_path+file_name)
-    data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
+def preprocessing_suicide_rate_data(folder_path):
+    data = csv_to_df(folder_path+'suicide_rate.csv')
+    data = data[(data['YEAR']>=2005)]
+    data.insert(0, 'index', range(1, len(data) + 1))
+
     return data
 
 # Lee un archivo csv, lo pasa a un dataframe y selecciona los datos que se encuentran entre el 2005 y 2015 de unployment o suicide_rate dataset
+# CLEAN CODE? HACER DOS METODOS
 def preprocessing_suicide_rate_or_unemployment_data(op, folder_path):
     for file_name in os.listdir(folder_path):
         data = csv_to_df(folder_path+file_name)
+        # Option 1: suicide_rate
         if op == 1:
-            data = data[(data['YEAR']>=2005) & (data['YEAR']<=2015)]
+            data = data[(data['YEAR']>=2005)]
+        # Option 2: uneployment
         if op == 2:
-            data = data[(data['Year']>=2005) & (data['Year']<=2015)]
+            data = data[(data['Year']>=2005)]
+
         else: print("Opcion incorrecta, ha de ser 1 o 2")
         break
     return data
@@ -253,6 +288,7 @@ def save_csv(dataframe, file_name):
         os.makedirs(folder_path)
     # Save the DataFrame to the CSV file
     path = folder_path+file_name
+
     dataframe.to_csv(path, index=False)
     return path
 
@@ -263,24 +299,6 @@ def delete_csv(dir_list):
             shutil.rmtree(dir)
         except FileNotFoundError:
             print(f"El directorio {dir}, no existe")
-    
-# Conexion con la base de datos
-def connect_ddbb():
-    un = 'user_r'
-    cs = '(description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1521)(host=adb.eu-madrid-1.oraclecloud.com))(connect_data=(service_name=g067633159c582f_dbmm_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))'
-    pw = getpass.getpass(f'Enter password for {un}: ')
-    try:
-        connection = oracledb.connect(user=un, password=pw, dsn=cs)
-        with connection.cursor() as cursor:
-            sql = """select systimestamp from dual"""
-            for r, in cursor.execute(sql):
-                print(r)
-    except oracledb.Error as e:
-        error, = e.args
-        print(error.message)
-        traceback.print_tb(e.__traceback__)
-
-    return connection
 
 # Lee el archivo de configuracion de la bbdd y devuleve una lisat con los parametros
 def read_config(file):
@@ -297,26 +315,10 @@ def read_config(file):
     lista_valores = [configuracion['user'], configuracion['password'], configuracion['host'], configuracion['database']]
     return lista_valores
 
-def upload_data(cnx, df, table_name):
-    config = read_config(config)
-    # Reemplaza los valores entre corchetes con tus propias credenciales e información de la base de datos
-    oracle_connection_string = f"oracle+cx_oracle://{config['usuario']}:{config['contraseña']}@{config['host']}:{config['puerto']}/{config['nombre_base_datos']}"
-    engine = create_engine(oracle_connection_string)
-    # Utiliza el método to_sql para escribir el DataFrame en la tabla 'ofertasLaborales'
-    df.to_sql(table_name, engine, if_exists='replace', index=False)
-
-    return 1
 
 def create_raw_mortalidad_data(download_dir):
     print("Inicio de la creacion del archivo 'raw_mortalidad_data'")
     raw_mortalidad_data(download_dir, 'raw/raw_mortalidad_data.csv')
-    print('Archivo raw creado\n')
-    return 1
-
-def create_raw_mortalidad_data_old(download_dir):
-    print("Inicio de la creacion del archivo 'raw_mortalidad_data'")
-    raw_df_mortalidad = join_csvs(download_dir)
-    save_csv(raw_df_mortalidad, 'raw/raw_mortalidad_data_old.csv')
     print('Archivo raw creado\n')
     return 1
 
@@ -348,18 +350,18 @@ def create_silver_mortalidad_data(download_dir):
 
 def create_silver_suicide_rate_data(download_dir):
     print("Inicio del preprocesamiento del dataset de 'suicide rate'")
-    preprocess_suicide_rate_data = preprocessing_suicide_rate_or_unemployment_data(1, download_dir)
+    preprocess_suicide_rate_data = preprocessing_suicide_rate_data(download_dir)
     print("Inicio del guardado de datos...")
-    save_csv(preprocess_suicide_rate_data, "silver/silver_suicide_rate_data.csv")
+    save_csv(preprocess_suicide_rate_data, 'silver/', "silver_suicide_rate_data.csv")
     print("Fin del guardado de datos en el archivo suicide_rate_data.csv\n")
     
     return 1
 
 def create_silver_unemployment_data(download_dir):
     print("Inicio del preprocesamiento del dataset de 'unemployment'")
-    preprocess_data = preprocessing_suicide_rate_or_unemployment_data(2,download_dir)
+    preprocess_data = preprocessing_unemployment_data(download_dir)
     print("Inicio del guardado de datos...")
-    save_csv(preprocess_data, "silver/silver_unemployment_data.csv")
+    save_csv(preprocess_data, 'silver/', "silver_unemployment_data.csv")
     print("Fin del guardado de datos en el archivo silver_unemployment_data.csv\n")
     
     return 1
@@ -485,6 +487,7 @@ def menu():
                 elif menu_op == '3': create_silver_unemployment_data(download_dir_unemployment)
                 elif menu_op == '4': break
                 else: print("Opción no válida. Por favor, selecciona una opción válida.")
+
         # Submenu para la capa GOLD
         elif opcion == '4':
             while True:
@@ -495,8 +498,7 @@ def menu():
                 elif menu_op == '4': unify_suicide_rate_and_unemployment_data(gold_suicide_rate, gold_unemployment_rate)
                 elif menu_op == '5': break
                 else: print("Opción no válida. Por favor, selecciona una opción válida.")
-         
-        
+
         elif opcion == '12':
                 print()
         # Opcion para eliminar los csv's del proyecto
@@ -508,6 +510,7 @@ def menu():
             cnx = connect_ddbb()
             print(cnx)
             cnx.close()
+
         # Opcion 13: Salida
         elif opcion == "99":
             break

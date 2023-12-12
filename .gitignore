@@ -1,16 +1,27 @@
 /csv
 /resultados
+
 /resultados_raw
+
+
 /SuicideData
 /SuicideRateData
 /UnemploymentData
 tempCodeRunnerFile.py
+
 *.csv
 *.json
 pass.txt
 /raw
 /silver
 /gold
+
+
+ddbb_passaword.txt
+*.txt
+*.csv
+*.json
+*.log
 
 
 # Ignora archivos del sistema Mac 
@@ -149,4 +160,7 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
+
+.pyre/
+=======
 .pyre/
