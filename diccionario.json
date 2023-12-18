@@ -34,14 +34,9 @@
         "26": "Unknown",
         "99": "Not stated"
     },
-    "education_reporting_flag":{
-        "0": "1989 revision of education item on certificate",
-        "1": "2003 revision of education item on certificate",
-        "2": "no education item on certificate"
-    },
     "sex":{
-        "M": "Male",
-        "F": "Female"
+        "0": "Male",
+        "1": "Female"
     },
     "marital_status":{
         "S": "Never married, single",
@@ -51,79 +46,22 @@
         "U": "Marital Status unknown"
     },
     "current_data_year":{
+        "2015": "2005",
+        "2015": "2006",
+        "2015": "2007",
+        "2015": "2008",
+        "2015": "2009",
+        "2015": "2010",
+        "2015": "2011",
+        "2015": "2012",
+        "2015": "2013",
+        "2015": "2014",
         "2015": "2015"
-    },
-    "place_of_injury_for_causes_w00_y34_except_y06_and_y07_":{
-        "0": "Home",
-        "1": "Residential institution",
-        "2": "School, other institution and public administrative area",
-        "3": "Sports and athletics area",
-        "4": "Street and highway",
-        "5": "Trade and service area",
-        "6": "Industrial and construction area",
-        "7": "Farm",
-        "8": "Other Specified Places",
-        "9": "Unspecified place",
-        "Blank": "Causes other than W00-Y34, except Y06.- and Y07.-"
-    },
-    "race":{
-        "18": "Asian Indian",
-        "28": "Korean",
-        "38": "Samoan",
-        "48": "Vietnamese",
-        "58": "Guamanian",
-        "68": "Other Asian or Pacific Islander in areas reporting codes 18-58",
-        "78": "Combined other Asian or Pacific Islander, includes codes 18-68",
-        "01": "White",
-        "02": "Black",
-        "03": "American Indian (includes Aleuts and Eskimos)",
-        "04": "Chinese",
-        "05": "Japanese",
-        "06": "Hawaiian (includes Part-Hawaiian)",
-        "07": "Filipino",
-        "00": "Other races",
-        "08": "Other Asian or Pacific Islander"
     },
     "race_recode_3":{
         "1": "White",
         "2": "Races other than White or Black",
         "3": "Black"
-    },
-    "race_recode_5":{
-        "0": "Other (Puerto Rico only)",
-        "1": "White",
-        "2": "Black",
-        "3": "American Indian",
-        "4": "Asian or Pacific Islander"
-    },
-    "detail_age_type":{
-        "1": "Years",
-        "2": "Months",
-        "9": "NaN"
-    },
-    "AGE_RECODE_21":{
-        82,  
-        57,  
-        22,  
-        17,
-        32,  
-        37,  
-        47,  
-        31,  
-        67,  
-        42,  
-        52,  
-        87,  
-        12,
-        72,  
-        77,  
-        62,  
-        92,  
-        97,   
-        0,   
-        7, 
-        100,   
-        4
     },
     "detail_age":{
         "10": "14 - 20 days",
